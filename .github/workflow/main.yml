@@ -1,0 +1,67 @@
+name: Build and Release Extensity for Firefox
+
+# トリガー: GitHubブラウザ画面からの手動実行のみ
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'リリースするタグ名 (例: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+        type: string
+
+# GitHub Releaseとタグを作成するために必要な権限
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: 2. Node.js環境のセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 3. ビルドツールのインストール (uglify-js, sass)
+        run: npm install -g uglify-js sass
+
+      - name: 4. manifest.json にFirefox用の特権IDを注入
+        run: |
+          jq '. + {"browser_specific_settings": {"gecko": {"id": "my-extensity@yourdomain.com"}}}' manifest.json > tmp.json && mv tmp.json manifest.json
+
+      - name: 5. HTMLとJSのUI・リンクをFirefox向けに自動書き換え (Patch)
+        run: |
+          # Chromeウェブストアのリンクを無効化
+          sed -i 's|href="https://chrome.google.com/webstore[^"]*" target="_blank"|href="#"|g' index.html
+          
+          # 拡張機能アイコンのリンク先を Firefoxの管理画面(about:addons) に変更
+          sed -i 's|href="chrome://extensions"[^>]*>|href="#" class="page" id="firefox-addons" onclick="browser.tabs.create({url: '\'about:addons\''})">|g' index.html
+          
+          # jsフォルダ内のJSファイルから chrome://extensions の記述を about:addons に置換
+          find js -type f -name "*.js" -exec sed -i 's|chrome://extensions|about:addons|g' {} +
+
+      - name: 6. 拡張機能をビルド (Makefileの実行)
+        run: make
+
+      - name: 7. 生成されたZIPファイルを XPI (Firefoxアドオン形式) にリネーム
+        run: mv dist/dist.zip dist/my-extensity.xpi
+
+      - name: 8. 完成した XPI ファイルをArtifactとして保存 (念のため)
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensity-firefox-addon
+          path: dist/my-extensity.xpi
+
+      - name: 9. 入力されたタグ名で GitHub Release を作成
+        # 指定されたタグが存在しない場合、このActionが自動的にタグも生成してくれます
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          name: Release ${{ inputs.tag_name }}
+          files: dist/my-extensity.xpi
+          generate_release_notes: true
