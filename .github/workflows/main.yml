@@ -29,9 +29,11 @@ jobs:
       - name: 3. ビルドツールのインストール (uglify-js, sass)
         run: npm install -g uglify-js sass
 
-      - name: 4. manifest.json にFirefox用の特権IDを注入
+      - name: 4. manifest.jsonの修正（特権ID追加＆Firefox審査エラー回避）
         run: |
-          jq '. + {"browser_specific_settings": {"gecko": {"id": "my-extensity@yourdomain.com"}}}' manifest.json > tmp.json && mv tmp.json manifest.json
+          # 審査エラー「service_worker used without scripts fallback」を回避するため、
+          # service_workerの記述をscriptsにもコピーし、さらに特権IDを付与します。
+          jq '.browser_specific_settings.gecko.id = "my-extensity@yourdomain.com" | .background.scripts =[.background.service_worker]' manifest.json > tmp.json && mv tmp.json manifest.json
 
       - name: 5. ソースコードとMakefileの自動書き換え (Patch)
         run: |
@@ -44,7 +46,6 @@ jobs:
           # jsフォルダ内のJSファイルから chrome://extensions の記述を about:addons に置換
           find js -type f -name "*.js" -exec sed -i 's|chrome://extensions|about:addons|g' {} +
           
-          # ★今回追加した根本解決パッチ★
           # Makefileから .DS_Store を削除する処理(自爆の原因)を丸ごと削除
           sed -i '/\.DS_Store/d' Makefile
 
