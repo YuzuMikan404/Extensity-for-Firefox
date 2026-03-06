@@ -10,7 +10,6 @@ on:
         default: 'v1.0.0'
         type: string
 
-# GitHub Releaseとタグを作成するために必要な権限
 permissions:
   contents: write
 
@@ -34,7 +33,7 @@ jobs:
         run: |
           jq '. + {"browser_specific_settings": {"gecko": {"id": "my-extensity@yourdomain.com"}}}' manifest.json > tmp.json && mv tmp.json manifest.json
 
-      - name: 5. HTMLとJSのUI・リンクをFirefox向けに自動書き換え (Patch)
+      - name: 5. ソースコードとMakefileの自動書き換え (Patch)
         run: |
           # Chromeウェブストアのリンクを無効化
           sed -i 's|href="https://chrome.google.com/webstore[^"]*" target="_blank"|href="#"|g' index.html
@@ -44,6 +43,10 @@ jobs:
           
           # jsフォルダ内のJSファイルから chrome://extensions の記述を about:addons に置換
           find js -type f -name "*.js" -exec sed -i 's|chrome://extensions|about:addons|g' {} +
+          
+          # ★今回追加した根本解決パッチ★
+          # Makefileから .DS_Store を削除する処理(自爆の原因)を丸ごと削除
+          sed -i '/\.DS_Store/d' Makefile
 
       - name: 6. 拡張機能をビルド (Makefileの実行)
         run: make
@@ -51,14 +54,13 @@ jobs:
       - name: 7. 生成されたZIPファイルを XPI (Firefoxアドオン形式) にリネーム
         run: mv dist/dist.zip dist/my-extensity.xpi
 
-      - name: 8. 完成した XPI ファイルをArtifactとして保存 (念のため)
+      - name: 8. 完成した XPI ファイルをArtifactとして保存
         uses: actions/upload-artifact@v4
         with:
           name: extensity-firefox-addon
           path: dist/my-extensity.xpi
 
       - name: 9. 入力されたタグ名で GitHub Release を作成
-        # 指定されたタグが存在しない場合、このActionが自動的にタグも生成してくれます
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
