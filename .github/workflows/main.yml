@@ -29,7 +29,7 @@ jobs:
       - name: 3. ビルドツールのインストール (uglify-js, sass)
         run: npm install -g uglify-js sass
 
-      - name: 4. manifest.jsonの最適化（審査回避版）
+      - name: 4. manifest.jsonの最適化（Firefox審査完全対応版）
         run: |
           cat <<EOF > manifest.json
           {
@@ -49,6 +49,7 @@ jobs:
               "default_popup": "index.html"
             },
             "background": {
+              "scripts": ["js/migration.js"],
               "service_worker": "js/migration.js"
             },
             "permissions": ["management", "storage"],
