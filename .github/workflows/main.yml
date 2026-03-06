@@ -31,11 +31,7 @@ jobs:
 
       - name: 4. manifest.jsonの修正（特権ID追加、審査エラー回避、データ収集宣言）
         run: |
-          jq '.browser_specific_settings.gecko.id = "my-extensity@yourdomain.com" | \
-              .background.scripts = [.background.service_worker] | \
-              . + {"browser_specific_settings": {"gecko": {"id": "my-extensity@yourdomain.com", "strict_min_version": "109.0"}}, \
-              "browser_action": .action, \
-              "data_collection_permissions": false}' manifest.json > tmp.json && mv tmp.json manifest.json
+          jq '.browser_specific_settings.gecko.id = "my-extensity@yourdomain.com" | .background.scripts = [.background.service_worker] | .browser_action = .action | .data_collection_permissions = false' manifest.json > tmp.json && mv tmp.json manifest.json
               
       - name: 5. ソースコードとMakefileの自動書き換え (Patch)
         run: |
